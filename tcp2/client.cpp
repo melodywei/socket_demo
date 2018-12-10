@@ -23,7 +23,7 @@ void my_cli(FILE* fd, int sockfd) {
         
         read(sockfd, recvline, MAXLINE);
         fputs(recvline, stdout);
-	memset(recvline, 0, MAXLINE);
+	    memset(recvline, 0, MAXLINE);
     }
 }
 

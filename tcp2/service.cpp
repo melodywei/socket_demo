@@ -109,7 +109,14 @@ int main(int argc, const char * argv[]) {
     int clientfd = -1;
     while (true) {
         clientlen = sizeof(clientaddr);
-        clientfd = e_accept(listen_sock, &clientaddr, &clientlen);
+        clientfd = accept(listen_sock, (sockaddr*)&clientaddr, &clientlen);
+        if (clientfd < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
+            exit(0);
+        }
     
         if (fork() == 0) {
             close(listen_sock);
