@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include <asm-generic/errno-base.h>
+#include <sys/select.h>
 
 static const int MAXLINE = 4096;
 
@@ -18,13 +18,51 @@ void my_cli(FILE* fd, int sockfd);
 void my_cli(FILE* fd, int sockfd) {
     char sendline[MAXLINE] = {0};
     char recvline[MAXLINE]= {0};
-    while (fgets(sendline, MAXLINE, fd) != NULL) {
-        write(sockfd, sendline, strlen(sendline));
-        
-        read(sockfd, recvline, MAXLINE);
-        fputs(recvline, stdout);
-	    memset(recvline, 0, MAXLINE);
+
+    fd_set read_set;
+    int maxfd = 0;
+    FD_ZERO(&read_set);
+
+    FILE* writefp = fopen("out.txt", "w+");
+    bool shutwd = false;
+    while (true) {
+        FD_SET(sockfd, &read_set);
+
+        if (!shutwd) {
+            FD_SET(fileno(fd), &read_set);
+        }
+        maxfd = (sockfd > fileno(fd)) ? (sockfd + 1) : (fileno(fd) + 1);
+
+        if (select(maxfd, &read_set, NULL, NULL, NULL) == -1) {
+            return;
+        }
+
+        if (FD_ISSET(sockfd, &read_set))
+        {
+            if (read(sockfd, recvline, MAXLINE) == 0) {
+                if (shutwd) {
+                    return; 
+                }
+                printf("service has exit");              
+                return;
+            }
+            fputs(recvline, writefp);
+	        memset(recvline, 0, MAXLINE);
+            
+        }
+
+        if (FD_ISSET(fileno(fd), &read_set)) {
+            if (fgets(sendline, MAXLINE, fd) == NULL) {
+                shutwd = true;
+                shutdown(sockfd, SHUT_WR);
+                FD_CLR(fileno(fd), &read_set);
+                continue;
+            }
+            write(sockfd, sendline, strlen(sendline));
+        }
+          
     }
+    fclose(writefp);
 }
 
 int e_socket(int domain, int type, int protocol){
@@ -42,8 +80,14 @@ int main(int argc, const char *argv[])
     sockaddr_in servaddr;
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(45678);
-    inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
+    inet_pton(AF_INET, "192.168.1.105", &servaddr.sin_addr);
     connect(sockfd, (sockaddr*)&servaddr, sizeof(servaddr));
-    my_cli(stdin, sockfd);
+
+    FILE* fp = fopen("tutor", "r");
+    if (!fp) {
+        return -1;
+    }
+    my_cli(fp, sockfd);
+    fclose(fp);
     return 0;
 }
