@@ -140,7 +140,7 @@ void handle_client_data(pollfd clients[], int use_count, int ready_count)
         }
 
         if (clients[i].revents & (POLLRDNORM | POLLERR)) {
-            int read_len = read(sockfd, buf, MAXLISTEN);
+            int read_len = read(sockfd, buf, MAXLINE);
             if (read_len == 0) {
                 close(sockfd);
                 clients[i].fd = -1;
